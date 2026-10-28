@@ -9,6 +9,14 @@ enum ExportPlanTests {
                 && ExportPlan.durationLabel(3599.1) == "1:00:00"
                 && ExportPlan.durationLabel(0) == "00:00",
             "export durations round up to whole seconds across minute and hour boundaries")
+        try SmokeTests.require(
+            !ExportStrategy.available(netMDAttached: false).contains(.miniDisc)
+                && ExportStrategy.preferred(netMDAttached: false) == .files,
+            "MD is absent from the menu without an attached recorder")
+        try SmokeTests.require(
+            ExportStrategy.available(netMDAttached: true).contains(.miniDisc)
+                && ExportStrategy.preferred(netMDAttached: true) == .miniDisc,
+            "attached recorder reveals MD and makes it the default")
         let first = Song(title: "First", start: 0, end: 10)
         let second = Song(title: "Second", start: 5, end: 25)
         let third = Song(title: "Third", start: 30, end: 35)

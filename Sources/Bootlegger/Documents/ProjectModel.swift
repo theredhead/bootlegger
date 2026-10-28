@@ -359,28 +359,34 @@ final class ProjectModel: ObservableObject {
         }
     }
 
-    func exportFiles(_ snapshot: Project, settings: FileExportSettings = FileExportSettings()) {
-        guard !isBusy, let sourceURL, validateExport(snapshot) else { return }
+    @discardableResult
+    func exportFiles(
+        _ snapshot: Project, settings: FileExportSettings = FileExportSettings(),
+        completion: @escaping (Bool) -> Void = { _ in }
+    ) -> Bool {
+        guard !isBusy, let sourceURL, validateExport(snapshot) else { return false }
         let panel = NSOpenPanel()
         panel.title = "Choose a folder for exported audio"
         panel.canChooseFiles = false
         panel.canChooseDirectories = true
         panel.canCreateDirectories = true
-        guard panel.runModal() == .OK, let directory = panel.url else { return }
+        guard panel.runModal() == .OK, let directory = panel.url else { return false }
         let cover = artwork
         isBusy = true
         exportProgress = 0
         isExporting = true
         exportTask = Task {
+            var succeeded = false
             do {
                 let result = try await AudioExporter.export(
                     project: snapshot, artwork: cover, sourceURL: sourceURL, destination: directory,
                     settings: settings
-                ) { [weak self] progress, text in
-                    self?.exportProgress = progress
-                    self?.status = text
+                ) { progress, text in
+                    self.exportProgress = progress
+                    self.status = text
                 }
                 status = "Exported \(snapshot.songs.count) tracks to \(result.lastPathComponent)."
+                succeeded = true
                 NSWorkspace.shared.activateFileViewerSelecting([result])
             } catch is CancellationError {
                 status = "Export cancelled."
@@ -391,7 +397,9 @@ final class ProjectModel: ObservableObject {
             isBusy = false
             isExporting = false
             exportTask = nil
+            completion(succeeded)
         }
+        return true
     }
 
     func cancelExport() { exportTask?.cancel() }

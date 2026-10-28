@@ -33,7 +33,7 @@ enum AudioExporter {
     static func export(
         project: Project, artwork: Data?, sourceURL: URL, destination: URL,
         settings: FileExportSettings = FileExportSettings(),
-        progress: (Double, String) -> Void
+        progress: @escaping (Double, String) -> Void
     ) async throws -> URL {
         var ancestor = destination.resolvingSymlinksInPath()
         while ancestor.path != "/" {
@@ -51,16 +51,24 @@ enum AudioExporter {
         let albumDirectory = destination.appendingPathComponent(
             "\(safeFilename(project.album.title)) — \(UUID().uuidString.prefix(8))", isDirectory: true)
         try FileManager.default.createDirectory(at: albumDirectory, withIntermediateDirectories: false)
+        let totalDuration = project.songs.reduce(0) { $0 + $1.end - $1.start }
+        var completedDuration = 0.0
         do {
             for (index, song) in project.songs.enumerated() {
                 try Task.checkCancellation()
                 progress(
-                    Double(index) / Double(project.songs.count),
+                    completedDuration / totalDuration,
                     "Exporting \(index + 1)/\(project.songs.count): \(song.title)…")
                 try await AudioFileEncoder.write(
                     asset: asset, song: song,
                     destination: albumDirectory.appendingPathComponent(filenames[index]), settings: settings,
-                    metadata: metadata(project: project, song: song, index: index, artwork: exportedArtwork))
+                    metadata: metadata(project: project, song: song, index: index, artwork: exportedArtwork)
+                ) { fraction in
+                    progress(
+                        (completedDuration + fraction * (song.end - song.start)) / totalDuration,
+                        "Exporting \(index + 1)/\(project.songs.count): \(song.title)…")
+                }
+                completedDuration += song.end - song.start
                 try Task.checkCancellation()
             }
             progress(1, "Export complete.")

@@ -2,6 +2,10 @@
 set -eu
 cd "${0:A:h:h}"
 mkdir -p .build/tests
+zsh scripts/build-netmd.sh > .build/tests/netmd-build.log 2>&1
+zsh scripts/test-netmd.sh
+export BOOTLEGGER_ATRAC_ENCODER="$PWD/.build/NetMD/BootleggerATRAC"
+export BOOTLEGGER_NETMD_HELPER="$PWD/.build/NetMD/BootleggerNetMD"
 xcrun swiftc -parse-as-library -swift-version 5 -strict-concurrency=complete \
     -module-cache-path .build/ModuleCache.noindex \
     Sources/Bootlegger/App/ProjectWindow.swift \

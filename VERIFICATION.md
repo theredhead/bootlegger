@@ -201,3 +201,163 @@ and native token-field clipboard parsing/pill styles. Build and strict style che
 pass. Visible token insertion, dragging/reordering, editing literal separators, and
 Settings-to-export overrides remain manual UI checks. WAV/AIFF/CAF tag writing is
 not implemented and is stated in the UI.
+
+## Native NetMD export
+
+- Vendored netmd++ revision and dependency release checksums are recorded. Helper
+  build, source/license packaging and app signing are checked by the Xcode build.
+- Swift tests cover cluster-rounded capacity boundaries, LP factors, write protection,
+  insufficient space, unsupported modes, 255-track limits, independent preferences,
+  helper progress/error propagation, malformed command rejection, and read-only USB
+  discovery returning a structured result/error.
+- Native synthetic TOC test splits one recording into unequal tracks and verifies
+  contiguous, unique coverage of every original audio group, titles, track count,
+  and rejection of a cyclic fragment chain. This does not establish hardware safety.
+- Live read-only discovery returns a structured error when no recorder is enumerated. An
+  SDK weak-import issue in libusb's pipe2 feature detection was caught by this probe;
+  the build explicitly selects its portable pipe/fcntl path for macOS 15 deployment.
+- After reconnecting the USB cable, live read-only discovery identified a Sony MZ-RH1
+  with an empty writable disc, 4,499 SP-equivalent seconds available, and stable repeated
+  snapshots. Its capability report disables gapless SP and on-device LP encoding.
+  USB writes, disc erase, title encoding, accuracy of capacity during recording,
+  device-specific gapless operations, cancellation and playback remain unverified.
+  No tracks were written or erased during diagnosis. Test with a disposable MD first.
+
+Manual checks: attach one recorder, Refresh, compare displayed capacity against the
+recorder, choose an oversized selection and verify refusal, toggle write protection,
+confirm/cancel erase and verify capacity refresh, write SP tracks in custom order,
+verify titles and audible boundaries. On supported hardware, test gapless SP on a
+blank MD and check retained recovery TOCs. On a compatible deck, test LP2/LP4. Disconnect
+or swap a disc between review and action and verify refusal. Attach two recorders
+and verify that the app asks for only one. Completed tracks may remain after failure;
+never assume that cancellation rolls back the disc.
+
+## Recorder detection diagnosis
+
+The initial macOS USB Host inventory contained only a hub and AV adapter. After
+reconnection, the Net MD/Hi-MD device appeared and the helper read it successfully.
+Discovery now distinguishes no supported USB device from an identified recorder that
+cannot be opened or whose disc cannot be read. Multiple recorder refusal remains.
+Build and regression suite pass, including read-only discovery on the connected RH1.
+
+## RH1 false recorder-change correction
+
+Repeated read-only RH1 probes reproduced alternating USB addresses (`2:2` and `2:4`)
+with identical disc contents. The backend resets/reopens USB, so that temporary
+address cannot identify a recorder. The snapshot now uses vendor/product IDs, USB
+bus and physical port chain, retaining all disc-content/capacity/protection fields.
+Native tests verify address reassignment is ignored, physical-port/model changes are
+detected, and missing port topology fails closed. Three live probes then returned
+identical fingerprints on the connected RH1. No disc writes or erases were performed.
+
+## Export-only options and attached-device strategy selection
+
+The export Preferences/Settings UI and saved strategy preference are removed. File
+and MD settings are edited in export preparation popups and remembered automatically.
+MD is absent from the export menu without an attached supported recorder. On opening
+preparation, MD is the default when attached; otherwise Files is the default. Read-only
+USB enumeration updates attachment state every two seconds while the sheet is open,
+without opening/resetting a recorder or reading its disc. Device presence is separate
+from readiness/capacity: a connected recorder without a writable disc still reveals
+MD, but cannot write until preflight succeeds. Manual strategy changes persist while
+the attachment state remains unchanged.
+
+Tests cover menu inclusion/exclusion and attached/unattached default selection. The
+new enumeration command detects the connected Sony MZ-RH1 by its stable physical
+port identity. Visible connect/disconnect menu behavior remains a manual UI check.
+
+## Unified export options button
+
+The preparation footer now orders Cancel/Stop, the Options gear, and the split export
+button. One popover switches between file settings, MD settings/device controls,
+and CD placeholder information. Method selection only changes the selected method;
+no export or placeholder alert is invoked by selection. Visible footer layout and
+popover switching remain manual UI checks.
+
+## NetMD error -8 and optional software ATRAC
+
+Reproduced macOS AVAssetWriter WAV output containing JUNK before fmt, FLLR padding,
+and WAVE_FORMAT_EXTENSIBLE (0xfffe). The backend accepts only classic PCM with fmt
+first. NetMDPCMFile now rewraps staging audio losslessly into a classic 44-byte-header
+WAV. Tests check byte-for-byte PCM preservation, duration, idempotence and rejection
+without input replacement. This fixes the file rejection before USB transfer.
+
+The user authorized testing on a throwaway MD. Hardware tests on the connected
+MZ-RH1 successfully wrote and read back three short tracks: recorder SP, software
+ATRAC3 LP2, and software ATRAC3 LP4. USB payloads were 354,328 / 33,432 / 16,728 bytes,
+respectively. The three test tracks remain on the disc; no erase was performed.
+Reported track lengths were 2.00 / 2.01 / 1.85 seconds for a 2-second source. LP4's
+shorter reported duration is a known open hardware timing/playback verification item;
+LP4 is marked experimental in the popup. No audible playback verification was done.
+Gapless and software ATRAC1 upload remain untested on physical supported hardware;
+the RH1 reports those paths unsupported and the UI/preflight refuses them.
+
+ATRACDEnc is bundled and built from pinned source, with static PCM-only libsndfile.
+Tests encode ATRAC1 AEA and LP2/LP4 ATRAC3 RIFF, check format/block alignment and payload
+reduction, and exercise device capability rejection. Both MD mode and encoder choices
+persist. Capacity reservation now uses the exact cluster duration and an extra cluster
+per recording to cover observed device/codec allocation padding. No transfer-speed
+multiple is claimed from these short tests; only USB payload reduction was measured.
+
+## Longer SP failure diagnosis — not yet resolved
+
+A user export with default recorder/SP settings failed with generic -4 after the WAV
+fix. A subsequent read-only probe returned -4 while requesting the inserted disc's
+track count; the planned 30-second transfer did not start. The next live USB probe
+was blocked because automatic approval review could not complete due to account usage
+limits. No additional test tracks were written during this diagnosis.
+
+The native backend now preserves underlying sendTrack/commitTrack return codes,
+instead of wrapping every failure as -4. The app retains stderr in per-operation
+logs under the temporary BootleggerNetMDLogs directory and includes a bounded tail
+of WARN/CRITICAL details plus its log path in the error. A standalone offline fixture
+checks that the original code, detailed cause and retained log reach the caller.
+Full SwiftUI build/tests could not run inside the sandbox because the Swift macro
+plugin is unavailable there; native source compilation and offline native TOC tests
+remain possible. Longer physical transfer validation is still required.
+
+### Continued failure diagnosis
+
+Approval review subsequently recovered. Detailed read-only traces showed capacity
+queries accepted while the audio-contents/track-count query returned REJECTED (0x0a).
+Explicit descriptor open/close handling was added, matching the reference protocol,
+but that alone did not restore the current recorder session. The library also reset
+USB every time it opened the device; this was removed so inspection cannot reset an
+active recorder. The user reported only the charging light and no button/display
+response; the RH1 then disappeared from the macOS USB Host inventory. A physical power
+cycle was requested using Sony's manual, page 70. The longer SP transfer has not run
+and this failure must not yet be considered fixed. Backend errors now always include
+the retained diagnostic log path, even if no CRITICAL/WARN detail was emitted.
+
+### SP transfer failure reproduced and corrected
+
+After the RH1 returned on another hub port, the 30-second SP test reproduced an
+80-second timeout on its first 1,048,576-byte host USB request, followed by device
+loss. The preserved underlying error is USB (-1); the earlier generic -4 masked it.
+The native adapter now caps host writes at 16 KiB while preserving the encrypted
+logical packets and audio bytes. It handles short successful writes, bounded empty
+interruptions, timeouts and zero-progress responses without looping forever.
+
+The identical 30-second transfer then succeeded through the same hub and cable.
+A further two-track batch (180-second SP plus 2-second SP) succeeded, transferring
+31,752,216 bytes for the long track, then advancing to and completing the second.
+Readback shows three tracks with titles and durations 30 / 180 / 2 seconds. The RH1
+remained visible and readable afterward. These three test tracks remain on the
+throwaway disc; no erase was performed. No full 41-minute concert has been written
+or playback checked by ear.
+
+Native regression tests cover a >1 MiB logical write fragmented into bounded requests,
+short writes, timeout propagation and zero-progress termination. The full offline
+export/document/encoding suite passes. The native build cache now invalidates objects
+when included vendor headers change. NetMD TX's follow-up scope is in NETMD_TX.md.
+
+Incremental signing correction: declared both helper executables and the bundled
+source directory as outputs of the native build phase. Without these outputs, an
+incremental build could replace helpers/resources without rerunning the outer app's
+CodeSign task. Deep strict signature verification is checked after incremental builds.
+
+Export progress: while exporting, verify that the track list and preparation controls
+are replaced by a compact progress view and Cancel button. File preparation and MD
+USB transfers should advance within each track. Successful exports close the sheet;
+errors and cancellation retain the selected tracks and order. MD cancellation finishes
+the active recording safely before stopping.

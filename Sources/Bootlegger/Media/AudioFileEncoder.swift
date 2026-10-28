@@ -5,7 +5,7 @@ import AVFoundation
 enum AudioFileEncoder {
     static func write(
         asset: AVAsset, song: Song, destination: URL, settings: FileExportSettings,
-        metadata: [AVMetadataItem]
+        metadata: [AVMetadataItem], progress: (Double) -> Void = { _ in }
     ) async throws {
         guard let track = try await asset.loadTracks(withMediaType: .audio).first else {
             throw BootleggerError.message("The recording has no audio track.")
@@ -53,7 +53,9 @@ enum AudioFileEncoder {
         guard writer.canAdd(input) else { throw BootleggerError.message("Cannot create the audio encoder.") }
         writer.add(input)
         if settings.format.supportsAlbumMetadata { writer.metadata = metadata }
+        var lastProgress = -1.0
         do {
+            progress(0)
             guard reader.startReading(), writer.startWriting() else {
                 throw reader.error ?? writer.error
                     ?? BootleggerError.message("Cannot start audio conversion.")
@@ -67,6 +69,17 @@ enum AudioFileEncoder {
                         throw writer.error ?? BootleggerError.message("Audio encoder stopped unexpectedly.")
                     }
                     try await Task.sleep(for: .milliseconds(5))
+                }
+                let duration = CMSampleBufferGetDuration(sample).seconds
+                let sampleDuration =
+                    duration.isFinite
+                    ? duration
+                    : Double(CMSampleBufferGetNumSamples(sample)) / Double(settings.sampleRate)
+                let position = CMSampleBufferGetPresentationTimeStamp(sample).seconds + sampleDuration
+                let fraction = max(0, min(0.99, (position - song.start) / (song.end - song.start)))
+                if fraction.isFinite && fraction - lastProgress >= 0.005 {
+                    progress(fraction)
+                    lastProgress = fraction
                 }
                 guard input.append(sample) else {
                     throw writer.error ?? BootleggerError.message("Could not write audio samples.")
@@ -82,6 +95,7 @@ enum AudioFileEncoder {
             guard writer.status == .completed else {
                 throw writer.error ?? BootleggerError.message("Audio encoding did not complete.")
             }
+            progress(1)
         } catch {
             reader.cancelReading()
             writer.cancelWriting()

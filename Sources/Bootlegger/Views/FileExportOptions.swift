@@ -63,38 +63,3 @@ struct FileExportOptions: View {
         }
     }
 }
-
-struct ExportSettingsView: View {
-    @AppStorage(ExportStrategy.preferenceKey) private var strategy = ExportStrategy.files.rawValue
-    @State private var settings = FileExportSettings(defaults: .standard)
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Picker("Default export strategy", selection: $strategy) {
-                ForEach(ExportStrategy.allCases) { option in Text(option.title).tag(option.rawValue) }
-            }
-            TabView {
-                FileExportOptions(settings: $settings)
-                    .padding().tabItem { Text("Files") }
-                Text(
-                    "NetMD writing is not implemented yet. Device and compression settings will appear here when supported."
-                )
-                .padding().tabItem { Text("MD") }
-                Text(
-                    "CD writing is not implemented yet. Burner and disc settings will appear here when supported."
-                )
-                .padding().tabItem { Text("CD") }
-            }
-        }
-        .padding(24)
-        .frame(width: 640, height: 360)
-        .onChange(of: settings) { _, value in
-            let defaults = UserDefaults.standard
-            defaults.set(value.format.rawValue, forKey: FileExportSettings.formatKey)
-            defaults.set(value.bitrate, forKey: FileExportSettings.bitrateKey)
-            defaults.set(value.bitDepth, forKey: FileExportSettings.bitDepthKey)
-            defaults.set(value.sampleRate, forKey: FileExportSettings.sampleRateKey)
-            defaults.set(value.filenameTemplate, forKey: FileExportSettings.filenameKey)
-        }
-    }
-}

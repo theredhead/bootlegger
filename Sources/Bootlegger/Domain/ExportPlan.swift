@@ -5,7 +5,14 @@ enum ExportStrategy: String, CaseIterable, Identifiable {
     case miniDisc
     case compactDisc
 
-    static let preferenceKey = "defaultExportStrategy"
+    static func available(netMDAttached: Bool) -> [ExportStrategy] {
+        return allCases.filter { $0 != .miniDisc || netMDAttached }
+    }
+
+    static func preferred(netMDAttached: Bool) -> ExportStrategy {
+        return netMDAttached ? .miniDisc : .files
+    }
+
     var id: String { return rawValue }
     var title: String {
         switch self {

@@ -206,17 +206,19 @@ Click anywhere in a song row to select it, including its padding and controls. E
 **Export Album…** opens a preparation sheet before any files are written. All tracks
 start selected; uncheck tracks or drag rows to change their export order. The total
 shows the sum of selected track durations. These choices do not change the project.
-The export button performs the default strategy; its attached menu offers **Export
-to Files**, **Write to MD**, and **Write to CD**. Change the default under
-**Bootlegger → Settings…** (Command-comma). File export asks for a destination and
-numbers the selected tracks in export order. MD and CD currently show a not-implemented
-alert; hardware detection and writing are reserved for later work.
+The export button performs the selected strategy. Without a NetMD recorder it starts
+with **Export to Files**, and **Write to MD** is absent from its menu. With a supported
+NetMD recorder attached, **Write to MD** appears and becomes the initial default.
+Connection changes update the available choices while preparation is open. The menu
+also offers **Write to CD**, currently a placeholder. File export asks for a destination and
+numbers the selected tracks in export order. MD uses the native NetMD helper described
+below. CD currently shows a not-implemented alert.
 
-### File export preferences
+### File export options
 
-The Files tab in Settings saves the default format, AAC bitrate (128–320 kbps),
+The **Options** gear immediately before the export button sets the format, AAC bitrate (128–320 kbps),
 lossless/PCM bit depth (16 or 24 bit), sample rate (44.1 or 48 kHz), and filename
-format. Supported output is AAC or Apple Lossless in M4A, plus uncompressed WAV,
+format. Popup changes are remembered automatically. Supported output is AAC or Apple Lossless in M4A, plus uncompressed WAV,
 AIFF, and CAF. All output is stereo. M4A includes album tags and artwork; PCM
 containers currently contain audio only. MP3 encoding is not provided by this app.
 
@@ -227,6 +229,71 @@ The default is `<track #>-<track name>` (for example `01-Opening Song.m4a`). Tra
 numbers follow the selected export order. The extension is added automatically.
 A live preview shows the result; duplicate names are rejected before export.
 
-**File Options…** in the export sheet starts from Preferences and lets you override
-these options for that export. Preferences keeps separate Files, MD, and CD sections;
-MD/CD device and compression settings will be added with their writing implementations.
+Export options appear only in export preparation popups. There is no export Settings
+or Preferences window and no saved default export strategy. MD options stay hidden
+until a NetMD recorder is attached and MD is selected in the export button's menu.
+
+### Writing directly to MiniDisc
+
+Connect one supported NetMD recorder in standard MD mode and open export preparation.
+MD becomes the default; choose the **Options** gear, insert a recordable disc, and choose
+**Refresh**. The sheet shows
+the recorder, existing tracks, available capacity in the selected mode, and whether
+gapless SP is available. **Write to MD** prepares 44.1 kHz, 16-bit stereo PCM directly
+from the source and transfers selected tracks in export order. Existing tracks are
+preserved; appending does not change the existing disc title.
+
+SP with the recorder’s encoder is the baseline. The MD **Options** popup also offers
+software ATRAC encoding where supported: ATRAC3 for LP2/LP4, and ATRAC1 SP only on
+recorders that explicitly support that upload path. On the MZ-RH1, SP uses recorder
+encoding and LP2/LP4 use software encoding. Software LP4 remains experimental pending
+playback/timing verification. Pre-encoding reduces USB payload, but total speed also
+depends on encoding time and the recorder. LP modes trade quality for playing time;
+software SP can sound different from the recorder's encoder. Hi-MD format writing is
+not implemented. Mode, encoder and gapless settings are remembered automatically.
+
+Available capacity and the 255-track limit are checked before preparing audio and
+again in the native helper immediately before writing. Capacity reserves whole
+SP-equivalent allocation clusters (176 × 512 / 44,100 seconds), plus one extra cluster
+per recording for transfer/encoder padding, so borderline selections may be rejected
+conservatively. Write-protected discs are rejected. **Erase / Format Disc…**
+asks for explicit confirmation, deletes every track, and refreshes capacity. It does
+not convert between standard MD and Hi-MD. Changed disc/device snapshots are rejected.
+
+Gapless SP is used only on supported recorders with an empty disc. Selected ranges
+are concatenated in export order, written as one recording, then split through TOC
+editing. The new layout is checked for lost/overlapping audio groups before writing.
+Recovery TOCs are retained in `~/Library/Application Support/Bootlegger/NetMDRecovery/`.
+Other cases transfer tracks individually. **Stop After Track** requests a stop at a
+safe boundary; during a gapless concert it finishes the continuous recording and
+track markers. Keep the recorder connected until the operation completes. A failed
+transfer can leave completed tracks on the disc; refresh before retrying.
+
+The native helper and its dependencies are bundled; Homebrew and Node are not
+required to run the app. For the first build from a new checkout, run:
+
+```sh
+NETMD_FETCH=1 zsh scripts/build-netmd.sh
+```
+
+This downloads checksum-verified dependency source archives into `.build/NetMD`,
+then compiles locally with Xcode command-line tools and CMake. Xcode's NetMD build phase uses
+that cache and signs/copies the helper. The helper is built for the current Mac's
+architecture. Its source archives, build script, and license notices are bundled in
+`Contents/Resources/NetMDSources`; see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+
+The single **Options** gear immediately before the export button shows settings for
+the selected method. Choosing a method in the dropdown only selects it; it does not
+start an export, open a settings popup, or trigger the CD placeholder alert. Use the
+gear to review settings, then click the main export action when ready.
+
+For NetMD staging only, the app normalizes padded/extensible macOS WAV files to
+classic integer PCM RIFF before transfer. Audio sample bytes are copied unchanged;
+normal file export and the original concert recording are unaffected. Software ATRAC
+runs offline using bundled ATRACDEnc, with its source and dependency notices included.
+
+On macOS, the NetMD adapter sends large encrypted packets through bounded 16 KiB
+USB writes. This avoids the RH1 timeout/disconnection reproduced with 1 MiB host
+requests, without changing the encoded audio. Failed operations retain backend
+WARN/CRITICAL details and a diagnostic log path instead of reporting only a generic
+error number. Normal device inspection does not reset the USB recorder.

@@ -42,6 +42,8 @@ struct SmokeTests {
         try await TrackDeletionTests.run()
         try await EditingSafetyTests.run(source: source)
         try ExportPlanTests.run()
+        try await NetMDTests.run()
+        try await NetMDPCMTests.run(source: source, directory: directory)
         try await FileExportTests.run(source: source, directory: directory)
         try RowSelectionTests.run()
         try ArtworkPaddingTests.run()

@@ -54,6 +54,14 @@ struct FileExportSettings: Equatable {
         filenameTemplate = defaults.string(forKey: Self.filenameKey) ?? Self.defaultTemplate
     }
 
+    func save(to defaults: UserDefaults) {
+        defaults.set(format.rawValue, forKey: Self.formatKey)
+        defaults.set(bitrate, forKey: Self.bitrateKey)
+        defaults.set(bitDepth, forKey: Self.bitDepthKey)
+        defaults.set(sampleRate, forKey: Self.sampleRateKey)
+        defaults.set(filenameTemplate, forKey: Self.filenameKey)
+    }
+
     func filenames(project: Project) throws -> [String] {
         guard !filenameTemplate.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             throw BootleggerError.message("Enter a filename format before exporting.")
