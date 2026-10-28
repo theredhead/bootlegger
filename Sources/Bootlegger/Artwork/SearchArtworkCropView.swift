@@ -1,0 +1,77 @@
+import AppKit
+
+/// Search preview uses the same normalized, nondestructive crop as the project editor.
+@MainActor
+final class SearchArtworkCropView: NSView {
+    var image: NSImage? {
+        didSet { setCrop(ArtworkCrop()) }
+    }
+    private(set) var crop = ArtworkCrop()
+    var onCropChange: ((ArtworkCrop) -> Void)?
+    private var dragStart = CGPoint.zero
+    private var dragCrop = ArtworkCrop()
+    override var isFlipped: Bool { return true }
+
+    func setCrop(_ value: ArtworkCrop) {
+        crop = value.clamped(width: Double(image?.size.width ?? 1), height: Double(image?.size.height ?? 1))
+        needsDisplay = true
+        onCropChange?(crop)
+    }
+
+    func setZoom(_ zoom: Double) {
+        var value = crop
+        value.zoom = zoom
+        setCrop(value)
+    }
+
+    func setCornerRadius(_ radius: Double) {
+        var value = crop
+        value.cornerRadius = radius
+        setCrop(value)
+    }
+
+    private var scale: Double {
+        guard let image else { return 1 }
+        return max(bounds.width / image.size.width, bounds.height / image.size.height) * crop.zoom
+    }
+
+    override func draw(_ dirtyRect: NSRect) {
+        NSGraphicsContext.saveGraphicsState()
+        defer { NSGraphicsContext.restoreGraphicsState() }
+        NSColor.windowBackgroundColor.setFill()
+        bounds.fill()
+        let radius = crop.previewRadius(
+            width: Double(image?.size.width ?? 1), height: Double(image?.size.height ?? 1),
+            previewSide: bounds.width)
+        NSBezierPath(roundedRect: bounds, xRadius: radius, yRadius: radius).addClip()
+        NSColor.black.setFill()
+        bounds.fill()
+        guard let image else { return }
+        let rectangle = CGRect(
+            x: bounds.midX - crop.centerX * image.size.width * scale,
+            y: bounds.midY - crop.centerY * image.size.height * scale,
+            width: image.size.width * scale, height: image.size.height * scale)
+        image.draw(
+            in: rectangle, from: .zero, operation: .sourceOver, fraction: 1, respectFlipped: true, hints: nil)
+    }
+
+    override func mouseDown(with event: NSEvent) {
+        dragStart = convert(event.locationInWindow, from: nil)
+        dragCrop = crop
+    }
+
+    override func mouseDragged(with event: NSEvent) {
+        guard let image else { return }
+        let point = convert(event.locationInWindow, from: nil)
+        setCrop(
+            ArtworkCrop(
+                centerX: dragCrop.centerX - (point.x - dragStart.x) / (image.size.width * scale),
+                centerY: dragCrop.centerY - (point.y - dragStart.y) / (image.size.height * scale),
+                zoom: crop.zoom, cornerRadius: crop.cornerRadius))
+    }
+
+    override func magnify(with event: NSEvent) {
+        guard image != nil else { return }
+        setZoom(crop.zoom * (1 + event.magnification))
+    }
+}

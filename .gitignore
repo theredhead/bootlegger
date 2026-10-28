@@ -1,0 +1,7 @@
+.DS_Store
+.build/
+DerivedData/
+*.xcuserstate
+xcuserdata/
+*.bootlegger/
+*.m4a
