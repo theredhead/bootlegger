@@ -1,4 +1,5 @@
 import AppKit
+import SwiftUI
 
 @main
 @MainActor
@@ -34,11 +35,13 @@ struct BootleggerApp {
             "Bootlegger",
             items: [
                 ("About Bootlegger", #selector(AppDelegate.showAbout(_:)), ""),
+                ("Settings…", #selector(AppDelegate.showSettings(_:)), ","),
                 ("-", nil, ""),
                 ("Hide Bootlegger", #selector(NSApplication.hide(_:)), "h"),
                 ("Quit Bootlegger", #selector(NSApplication.terminate(_:)), "q"),
             ])
         menu.items.first?.submenu?.items.first?.target = NSApplication.shared.delegate
+        menu.items.first?.submenu?.items.dropFirst().first?.target = NSApplication.shared.delegate
         section(
             "File",
             items: [
@@ -90,6 +93,20 @@ struct BootleggerApp {
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
+    private var settingsWindow: NSWindow?
+
+    @objc func showSettings(_ sender: Any?) {
+        if settingsWindow == nil {
+            let window = NSWindow(contentViewController: NSHostingController(rootView: ExportSettingsView()))
+            window.title = "Settings"
+            window.styleMask = [.titled, .closable]
+            window.isReleasedWhenClosed = false
+            window.center()
+            settingsWindow = window
+        }
+        settingsWindow?.makeKeyAndOrderFront(nil)
+    }
+
     @objc func showAbout(_ sender: Any?) {
         let bundle = Bundle.main
         var options: [NSApplication.AboutPanelOptionKey: Any] = [

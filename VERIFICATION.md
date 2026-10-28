@@ -179,3 +179,25 @@ Return/Escape release, outside clicks with flipped coordinates, and range reject
 ## Row selection, artwork padding and window sizing
 
 Native regression checks cover row padding and control hit regions, text-focus handoff, hidden/deleted row guards, zoom-out black padding, transparent PNG corners, crop orientation, radius defaults and persistence. The upper player/metadata section is capped at metadata content height; surplus window height goes to the track list. Visible resizing and crop interaction remain manual Xcode checks.
+
+## Export preparation and strategy preferences
+
+Export-plan regression tests cover all-selected defaults, summed durations (including
+overlap), deselection, reordered export snapshots, preservation of the saved project,
+empty totals, and routing the export command to preparation without writing files.
+The native preparation sheet uses list drag reordering and a split menu action;
+Settings stores the default strategy in UserDefaults. MD/CD actions show placeholders.
+Manual UI checks: drag selected and deselected rows, cancel the sheet/destination
+panel, change Settings and reopen export, invoke each strategy, and verify exported
+track numbers/order in Apple Music. No hardware writing is implemented.
+
+## File encoding options and filename tokens
+
+Native tests export and reopen AAC, ALAC, WAV, AIFF, and CAF, checking codec,
+48 kHz sample rate, 24-bit PCM, trimmed duration, and M4A title metadata. Existing
+AAC export tests also verify album tags, track numbers and binary artwork. Tests
+cover preference defaults, filename expansion and sanitization, collision rejection,
+and native token-field clipboard parsing/pill styles. Build and strict style checks
+pass. Visible token insertion, dragging/reordering, editing literal separators, and
+Settings-to-export overrides remain manual UI checks. WAV/AIFF/CAF tag writing is
+not implemented and is stated in the UI.

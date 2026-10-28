@@ -21,6 +21,7 @@ final class ProjectModel: ObservableObject {
     @Published var isBusy = false
     @Published var status = "Open an audio or video recording to begin."
     @Published var exportProgress = 0.0
+    @Published var isPreparingExport = false
     @Published private(set) var isExporting = false
     let playback = Playback()
     let audioLevels = AudioLevels()
@@ -344,18 +345,28 @@ final class ProjectModel: ObservableObject {
     }
 
     func exportAudio() {
-        guard let sourceURL else { return }
-        do { try AudioExporter.validate(project: project, duration: playback.duration) } catch {
+        guard !isBusy, sourceURL != nil, !project.songs.isEmpty else { return }
+        isPreparingExport = true
+    }
+
+    func validateExport(_ snapshot: Project) -> Bool {
+        do {
+            try AudioExporter.validate(project: snapshot, duration: playback.duration)
+            return true
+        } catch {
             errorMessage = error.localizedDescription
-            return
+            return false
         }
+    }
+
+    func exportFiles(_ snapshot: Project, settings: FileExportSettings = FileExportSettings()) {
+        guard !isBusy, let sourceURL, validateExport(snapshot) else { return }
         let panel = NSOpenPanel()
         panel.title = "Choose a folder for exported audio"
         panel.canChooseFiles = false
         panel.canChooseDirectories = true
         panel.canCreateDirectories = true
         guard panel.runModal() == .OK, let directory = panel.url else { return }
-        let snapshot = project
         let cover = artwork
         isBusy = true
         exportProgress = 0
@@ -363,7 +374,8 @@ final class ProjectModel: ObservableObject {
         exportTask = Task {
             do {
                 let result = try await AudioExporter.export(
-                    project: snapshot, artwork: cover, sourceURL: sourceURL, destination: directory
+                    project: snapshot, artwork: cover, sourceURL: sourceURL, destination: directory,
+                    settings: settings
                 ) { [weak self] progress, text in
                     self?.exportProgress = progress
                     self?.status = text

@@ -32,6 +32,7 @@ enum AudioExporter {
 
     static func export(
         project: Project, artwork: Data?, sourceURL: URL, destination: URL,
+        settings: FileExportSettings = FileExportSettings(),
         progress: (Double, String) -> Void
     ) async throws -> URL {
         var ancestor = destination.resolvingSymlinksInPath()
@@ -43,6 +44,7 @@ enum AudioExporter {
         }
         let asset = AVURLAsset(url: sourceURL)
         try validate(project: project, duration: try await asset.load(.duration).seconds)
+        let filenames = try settings.filenames(project: project)
         let exportedArtwork = try artwork.map {
             try ArtworkProcessor.exportArtwork($0, crop: project.artworkCrop)
         }
@@ -55,18 +57,10 @@ enum AudioExporter {
                 progress(
                     Double(index) / Double(project.songs.count),
                     "Exporting \(index + 1)/\(project.songs.count): \(song.title)…")
-                guard
-                    let session = AVAssetExportSession(asset: asset, presetName: AVAssetExportPresetAppleM4A)
-                else {
-                    throw BootleggerError.message("This recording cannot be converted to M4A by macOS.")
-                }
-                session.timeRange = CMTimeRange(
-                    start: CMTime(seconds: song.start, preferredTimescale: 60000),
-                    end: CMTime(seconds: song.end, preferredTimescale: 60000))
-                session.metadata = metadata(
-                    project: project, song: song, index: index, artwork: exportedArtwork)
-                let filename = String(format: "%02d", index + 1) + " — " + safeFilename(song.title) + ".m4a"
-                try await session.export(to: albumDirectory.appendingPathComponent(filename), as: .m4a)
+                try await AudioFileEncoder.write(
+                    asset: asset, song: song,
+                    destination: albumDirectory.appendingPathComponent(filenames[index]), settings: settings,
+                    metadata: metadata(project: project, song: song, index: index, artwork: exportedArtwork))
                 try Task.checkCancellation()
             }
             progress(1, "Export complete.")

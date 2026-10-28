@@ -70,6 +70,7 @@ struct ProjectView: View {
             }
         }
         .onPreferenceChange(MetadataHeightPreference.self) { metadataHeight = max(440, $0) }
+        .sheet(isPresented: $model.isPreparingExport) { ExportSheet(model: model) }
         .onSubmit { (NSApplication.shared.keyWindow as? ProjectWindow)?.focusPlayback() }
         .dropDestination(for: URL.self) { urls, _ in
             guard urls.count == 1, let url = urls.first, ProjectModel.isRecording(url) else { return false }

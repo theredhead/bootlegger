@@ -1,7 +1,7 @@
 # Bootlegger
 
 A small native macOS utility for turning a local concert recording into individually
-trimmed, tagged AAC/M4A songs for Apple Music. SwiftUI provides the editor; AppKit
+trimmed audio files, including tagged AAC/Apple Lossless albums for Apple Music. SwiftUI provides the editor; AppKit
 handles document windows and AVKit/AVFoundation handle playback and media export.
 
 ## Build and run
@@ -51,7 +51,7 @@ For an optimized app, build with `-configuration Release`; the result is
    (Command-O) reopens it. Multiple projects can stay open with independent playback
    and edits. Save explicitly; automatic saving/recovery is not implemented yet.
 7. Choose **Export Album**, then a folder outside the project. Bootlegger creates a
-   fresh album directory with numbered M4A songs. Existing exports are never overwritten.
+   fresh album directory with songs named using the selected filename format. Existing exports are never overwritten.
    Cancelling or failing an export removes that operation's partial album directory.
 
 ## Fast marking and playback
@@ -200,3 +200,33 @@ Existing title/year values are preserved, including when replacing the recording
 Artwork editors support 0.1–20× zoom, including black padding when zoomed out. Corner radius defaults to 8 output pixels and can be adjusted; rounded corners are transparent in the exported PNG. Original artwork and editable crop settings remain in the project.
 
 Click anywhere in a song row to select it, including its padding and controls. Enlarging the window gives additional vertical space to the track list after the player and metadata section reaches its content height.
+
+### Export selection and strategies
+
+**Export Album…** opens a preparation sheet before any files are written. All tracks
+start selected; uncheck tracks or drag rows to change their export order. The total
+shows the sum of selected track durations. These choices do not change the project.
+The export button performs the default strategy; its attached menu offers **Export
+to Files**, **Write to MD**, and **Write to CD**. Change the default under
+**Bootlegger → Settings…** (Command-comma). File export asks for a destination and
+numbers the selected tracks in export order. MD and CD currently show a not-implemented
+alert; hardware detection and writing are reserved for later work.
+
+### File export preferences
+
+The Files tab in Settings saves the default format, AAC bitrate (128–320 kbps),
+lossless/PCM bit depth (16 or 24 bit), sample rate (44.1 or 48 kHz), and filename
+format. Supported output is AAC or Apple Lossless in M4A, plus uncompressed WAV,
+AIFF, and CAF. All output is stereo. M4A includes album tags and artwork; PCM
+containers currently contain audio only. MP3 encoding is not provided by this app.
+
+The filename field combines editable separators/text with draggable token pills:
+Track #, Track Name, Artist, Album, Album Artist, and Year. Drag tokens from the
+palette into the field or click to append; tokens within the field can be moved.
+The default is `<track #>-<track name>` (for example `01-Opening Song.m4a`). Track
+numbers follow the selected export order. The extension is added automatically.
+A live preview shows the result; duplicate names are rejected before export.
+
+**File Options…** in the export sheet starts from Preferences and lets you override
+these options for that export. Preferences keeps separate Files, MD, and CD sections;
+MD/CD device and compression settings will be added with their writing implementations.

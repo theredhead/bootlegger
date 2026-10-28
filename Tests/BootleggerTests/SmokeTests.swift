@@ -41,6 +41,8 @@ struct SmokeTests {
         try await EditorTests.run(source: source)
         try await TrackDeletionTests.run()
         try await EditingSafetyTests.run(source: source)
+        try ExportPlanTests.run()
+        try await FileExportTests.run(source: source, directory: directory)
         try RowSelectionTests.run()
         try ArtworkPaddingTests.run()
         try await AudioRecordingTests.run(audio: audio)
