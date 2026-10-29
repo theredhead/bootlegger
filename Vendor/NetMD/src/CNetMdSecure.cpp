@@ -1,3 +1,6 @@
+/* Bootlegger modification, 2026-10-29: underlying transfer error propagation and byte progress callbacks.
+ * Original copyright and license notices are retained below.
+ */
 /*
  * CNetMdSecure.cpp
  *

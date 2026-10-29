@@ -26,3 +26,21 @@ Its PCM-only libsndfile 1.2.2 dependency is built from a checksum-verified sourc
 archive; its COPYING license is also bundled. See https://libsndfile.github.io/libsndfile/.
 Rebuild using the included build-netmd.sh/build-atrac.sh scripts, Xcode tools and CMake.
 The app has no runtime dependency on Homebrew, Node, or an encoding server.
+
+## Embedded components and release materials
+
+ATRACDEnc also compiles Kiss FFT (Mark Borgerding and contributors, BSD-3-Clause),
+libgha (Daniil Cherednik, BSD-2-Clause), and adapted FFmpeg ATRAC DSP code
+(Maxim Poliakovski and other per-file authors, LGPL-2.1-or-later). Its remaining
+component-specific copyright/license headers, including liboma, remain in source.
+The libgha source includes additional Kiss FFT BSD/Unlicense notices.
+
+Universal releases reproduce upstream license files, AUTHORS files and embedded
+copyright/license comments in the readable `Licenses` directory. Complete exact
+corresponding source, including the statically linked work using each library and
+all dependency archives, is supplied both on the DMG and inside each app as
+`Contents/Resources/CorrespondingSource.tar.gz`. See RELEASE_BUILD.md for modification,
+relinking, installation and distribution instructions. GPL-3.0 and LGPL-2.1 texts
+are available in Licenses/GPL-3.0.txt and Licenses/LGPL-2.1.txt. This packaging does
+not impose extra restrictions on modification or reverse engineering for debugging
+library modifications. No written-source-offer-only mechanism is used.

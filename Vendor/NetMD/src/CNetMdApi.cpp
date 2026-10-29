@@ -1,3 +1,6 @@
+/* Bootlegger modification, 2026-10-29: descriptor lifecycle, native SP readback, and progress integration.
+ * Original copyright and license notices are retained below.
+ */
 /*
  * CNetMdApi.cpp
  *

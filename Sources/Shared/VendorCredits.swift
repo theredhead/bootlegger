@@ -26,6 +26,12 @@ enum VendorCredits {
         Entry(
             project: "libsndfile", authors: "Erik de Castro Lopo and the libsndfile team",
             url: "https://libsndfile.github.io/libsndfile/"),
+        Entry(
+            project: "Kiss FFT", authors: "Mark Borgerding and contributors",
+            url: "https://github.com/mborgerding/kissfft"),
+        Entry(
+            project: "FFmpeg ATRAC DSP", authors: "Maxim Poliakovski and the FFmpeg contributors",
+            url: "https://ffmpeg.org/"),
     ]
 
     private static var aboutPanel: NSPanel?
@@ -86,10 +92,26 @@ enum VendorCredits {
             views.append(credit)
         }
         let licenses = label(
-            "App: MIT • NetMD helper: GPL-3.0-or-later\nComplete third-party sources and license notices are bundled.",
+            "App: MIT • NetMD helper: GPL-3.0-or-later\nIncludes LGPL libraries and BSD components.\nFull copyright notices, licenses and corresponding source are bundled.",
             font: .systemFont(ofSize: 11))
         licenses.textColor = .secondaryLabelColor
         views.append(licenses)
+        if let resources = Bundle.main.resourceURL {
+            let directory = resources.appendingPathComponent("Licenses")
+            let destination =
+                FileManager.default.fileExists(atPath: directory.path)
+                ? directory : resources.appendingPathComponent("NetMDSources")
+            let link = NSTextField(
+                labelWithAttributedString: NSAttributedString(
+                    string: "Third-party licenses and source",
+                    attributes: [
+                        .font: NSFont.systemFont(ofSize: 11), .link: destination,
+                        .foregroundColor: NSColor.linkColor,
+                    ]))
+            link.isSelectable = true
+            link.allowsEditingTextAttributes = true
+            views.append(link)
+        }
         let stack = NSStackView(views: views)
         stack.orientation = .vertical
         stack.alignment = .centerX

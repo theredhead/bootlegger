@@ -1,3 +1,6 @@
+/* Bootlegger modification, 2026-10-29: non-resetting device open and bounded USB read/write operations.
+ * Original copyright and license notices are retained below.
+ */
 /*
  * CNetMdDev.cpp
  *

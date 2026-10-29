@@ -23,24 +23,29 @@ open .build/Build/Products/Debug/Bootlegger.app
 For an optimized app, build with `-configuration Release`; the result is
 `.build/Build/Products/Release/Bootlegger.app`.
 
-## Release disk image
-
-Build every app target in Release and package the apps together:
+## Universal release disk image
 
 ```sh
 ./scripts/release.sh
 ```
 
-The script creates `.build/releases/Bootlegger-<version>-<architecture>.dmg`, a SHA-256
-checksum, and `build-release.log`. The image contains all apps built on the current branch and an
-Applications shortcut. Each app includes its native helpers, codecs and source/license
-notices. App signatures and the finished image are verified before publication.
+Builds **all app targets and both native helpers for arm64 and x86_64** and creates
+`.build/releases/Bootlegger-<version>-universal.dmg`. The DMG includes both apps,
+an Applications shortcut, readable vendor licenses/copyright notices, exact complete
+corresponding source and source/build manifests. Each app also contains the source
+archive and license materials. A matching standalone source archive, SHA-256 checksum
+file and full build log are published alongside the image.
 
-This builds for the current Mac's architecture, matching the bundled native helpers.
-It uses ad-hoc signing by default. Set `RELEASE_SIGN_IDENTITY` to an installed signing
-identity if needed; notarization is not part of this script. Pinned native dependency
-sources are downloaded if absent; set `NETMD_FETCH=0` for a cached/offline build.
-Use `./scripts/release.sh --output-dir /path/to/releases` for a different destination.
+Requires Xcode, CMake and Python 3.9+. Dependencies are pinned and checksum-verified;
+set `NETMD_FETCH=0` to use only cached or bundled source archives. Builds run from a
+frozen source snapshot, with isolated native build directories per architecture.
+The release fails if any shipped Mach-O lacks either slice, depends on a third-party
+runtime installation, or is missing required source/license materials.
+
+Use `--output-dir /path/to/releases` for another output directory. Signing defaults
+to ad-hoc; `RELEASE_SIGN_IDENTITY` selects an installed signing identity. See
+[RELEASE_BUILD.md](RELEASE_BUILD.md) for rebuilding, modifying/relinking static
+libraries, redistribution, and the limits of byte-for-byte reproducibility.
 
 ## Use
 

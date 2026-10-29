@@ -1,3 +1,6 @@
+/* Bootlegger modification, 2026-10-29: native SP readback API declarations.
+ * Original copyright and license notices are retained below.
+ */
 /*
  * CNetMdApi.h
  *

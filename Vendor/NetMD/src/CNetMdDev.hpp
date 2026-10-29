@@ -1,3 +1,6 @@
+/* Bootlegger modification, 2026-10-29: bounded device-to-host read declaration.
+ * Original copyright and license notices are retained below.
+ */
 /*
  * CNetMdDev.hpp
  *

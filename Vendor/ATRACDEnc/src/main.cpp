@@ -1,3 +1,6 @@
+/* Bootlegger modification, 2026-10-29: ATRAC1 decoding stops at individual sound-group boundaries.
+ * Original copyright and license notices are retained below.
+ */
 /*
  * This file is part of AtracDEnc.
  *
