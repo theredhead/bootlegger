@@ -362,6 +362,64 @@ USB transfers should advance within each track. Successful exports close the she
 errors and cancellation retain the selected tracks and order. MD cancellation finishes
 the active recording safely before stopping.
 
+NetMD TX: run the NetMD TX scheme and confirm a menu icon appears without an
+ordinary Dock icon. Show MiniDisc should reopen its window. Its title should be
+“device — disc title”; Refresh and Settings should appear in the unified toolbar.
+The content should be a track table with no playback controls or album header.
+Closing the window must leave the menu app running. Disc swaps require Refresh.
+
+Finder extraction: select one or multiple RH1 SP tracks and drag them to a Finder
+folder. Verify WAV output by default, original AEA after changing Settings, valid
+track filenames, sequential progress, and complete files that play in a Mac app
+(for WAV). Cancel a drag before dropping and verify no device read begins. Existing
+files must not be replaced. Unsupported recorder/format rows must not drag out.
+
+Finder import: review recording settings, then drop audio/video files onto the
+table. Use a disposable disc for manual write tests. Verify automatic copying,
+pending rows, capacity refusal before any batch track is written, and retained
+pending items on failure. Stop After Track must finish the active recording safely.
+Offline tests cover deferred/serialized promises, WAV decoding, exact original ATRAC
+delivery, capability gating and existing-file refusal without accessing a device.
+
+TX modal progress: start a multi-track copy in each direction. The window should
+show a modal sheet with overall percentage, current filename, and “Working on x
+of y.” The count must describe the selected batch, even when Finder requests files
+one at a time. The table and toolbar must be inaccessible until completion, and
+the sheet must close automatically after the last file. Stop After Track finishes
+the current copy safely and cancels remaining work. Verify text is vertically
+centered within normal and selected table rows.
+
+ATRAC EOF regression: offline fixtures exercise all eight sound-group remainders.
+The decoder must stop at the expected sample count without reading past EOF;
+remainders 6 and 7 previously failed on valid recordings.
+
+TX renaming: double-click a track title, edit it, and press Return to save or Escape
+to cancel. Click outside the field to commit. Rename Album in the toolbar should
+open a title sheet; Save writes the title and updates the window title from device
+readback. Refresh/reconnect and verify both titles persist, with track order,
+durations and audio unchanged. Write-protected discs and active transfers must
+prevent renaming; stale disc snapshots must be rejected before writing. Offline
+helper fixtures verify track/album command routing, readback, protection and invalid
+title rejection. Actual recorder title-write verification is performed manually.
+
+TX reorder: on a writable disc, drag one or more selected tracks using the handles
+and drop between rows. Verify upward/downward moves, nonadjacent selections, no-op
+positions, renumbering and persistence after Refresh/reconnect. Track titles,
+durations and audio should follow the moved tracks. A failed multi-track move must
+refresh actual device state because earlier moves may already have completed.
+
+Write protection: Refresh a protected disc and verify that the handle column and
+Rename Album toolbar item are absent. Finder imports and local reorder drops must
+be rejected without a drop indicator. Supported drag-out extraction remains usable.
+Offline tests cover insertion permutations, protected-disc refusal, reorder request
+identity/readback, and local row metadata alongside Finder file promises. Native
+reorder writes remain for manual verification on the recorder.
+
+TX keyboard rename: with exactly one recorded track selected and the table focused,
+press Return (or keypad Enter). The track name should enter editing with all text
+selected. Return in the editor saves; Escape cancels. Protected discs, pending file
+rows, and active transfers must not enter editing.
+
 Artwork search: without a selected image, verify the preview shows a photo icon
 and “No image yet” instead of a black crop. Type a query and pause for half a second
 for automatic search. Rapid edits should cancel the previous timer/navigation;
@@ -370,9 +428,12 @@ the query should clear selection/results and issue no search. Close the window o
 choose a local image during the debounce and verify no delayed search clears it.
 Older navigation errors/results must not replace the current query's state.
 
-Startup acknowledgements: launch Bootlegger and verify its centered, appearance-aware
-splash closes after approximately two seconds without blocking startup. About
-Bootlegger should retain linked author credits, version/build and license information.
+Startup acknowledgements: launch Bootlegger and NetMD TX separately. Each should
+show a centered, appearance-aware vendor thank-you splash for approximately two
+seconds, then close it without blocking startup or stealing keyboard focus. Quit
+during the splash and verify it disappears. About Bootlegger and the menu-bar
+About NetMD TX item should retain the same author credits, clickable project links,
+version/build and bundled-license information after the splash has closed.
 
 Updated acknowledgements layout: splash should show a large app icon, app name and
 a short reference to the About credits, with no vendor list. It should still close

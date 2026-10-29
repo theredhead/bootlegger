@@ -1,23 +1,60 @@
-# NetMD TX — follow-up scope
+# NetMD TX
 
-Implement after the current Bootlegger SP-transfer failure is diagnosed and verified.
+Select the **NetMD TX** scheme in `Bootlegger.xcodeproj`. This separate
+`nl.theredhead.NetMDTX` app stays in the menu bar without a Dock icon. Choose
+**Show MiniDisc** from the optical-disc menu to reopen its window.
 
-A native macOS background/menu-bar app for NetMD track transfer and disc management:
+## Track window
 
-- Detect attached supported recorders and disc insertion; open the disc's track-list
-  window automatically when a disc is inserted.
-- Display existing tracks, order, titles, durations, free capacity and recording modes.
-- Support drag-and-drop copies to and from the recorder, gated by actual model,
-  firmware, disc format and transfer/extraction capabilities.
-- Offer original ATRAC preservation on device-to-Mac copies and optional conversion
-  to macOS-supported audio formats. Decide decoder dependencies during implementation.
-- Reuse Bootlegger's MD recording-mode/encoder options and remembered contextual
-  settings. Preserve capability checks, capacity refusal and confirmed disc erase.
-- Make progress, safe cancellation, partial completion and recovery information clear.
+The unified toolbar holds Rename Album, Refresh and Settings. The window title combines the
+recorder name and disc title; its content is a track table with number, title,
+recording format and duration. Transfer progress appears in a modal sheet during operations, with overall
+percentage, filename and “Working on x of y.” The table and toolbar remain disabled
+until the complete batch finishes.
+There are no playback controls. Double-click a track title to edit it;
+Return or leaving the field saves, and Escape cancels. Rename Album opens a title
+sheet. Renames recheck disc identity/write protection, preserve existing group
+metadata, enforce title storage limits, and refresh titles from the recorder.
 
-Share a native device/transfer layer with Bootlegger. Coordinate USB ownership between
-apps and windows; do not reset/reopen the recorder merely to poll disc insertion or
-track state. A persistent device broker with serialized operations should be evaluated
-before adopting the current one-request helper as the final architecture.
+Drop audio/video files from Finder into the table to copy them as separate MD
+tracks using the remembered recording settings. TX checks the entire pending
+batch for capacity and capability before writing. Pending copies appear in the
+table; successfully copied items leave the queue. Failures retain unfinished
+items and offer retry/discard. Stopping finishes the active recording safely.
 
-No separate project or background app has been created yet.
+Drag one or more supported recorded tracks from the table into Finder. Native
+file promises defer extraction until a drop occurs, and device reads run in
+sequence. Settings chooses decoded WAV (default) or original ATRAC1 AEA. Each
+promise captures its disc identity, track index and output format; a stale disc
+is rejected and existing destination files are never replaced. Temporary ATRAC
+and decoded files are removed after delivery. Cancelling a drag before drop
+performs no extraction.
+
+Writable discs expose drag handles. Drag selected tracks between rows to save a
+new order on the MD, retaining the selected tracks' relative order. Reordering
+validates the captured disc identity and the complete permutation before any move,
+then reads back the actual order. If a move fails partway through, TX refreshes the
+actual state rather than assuming nothing changed.
+
+Write-protected discs hide drag handles and Rename Album, and reject incoming
+Finder drops and local reorder drops. Supported extraction remains available.
+
+## Current capabilities
+
+- Native digital extraction: Sony MZ-RH1, SP mono/stereo recordings.
+- Offline ATRAC1 decoding through bundled ATRACDEnc; WAV output works with macOS.
+- Device writes reuse Bootlegger's recording modes, encoders and capacity checks.
+- Unsupported models/formats have drag-out disabled; no factory-mode extraction.
+- The helper's process lock prevents simultaneous USB operations across apps.
+
+Hardware validation read a 187.06-second SP track back from the RH1, decoded a
+non-silent PCM signal, and confirmed an unchanged TOC. The user confirmed playback
+worked before requesting removal of the playback UI. No new hardware writes were
+used for the Finder workflow changes; Finder interaction is manually verified.
+
+## Remaining work
+
+A persistent device broker and disc-insertion events while the same recorder stays
+attached; LP decoding/extraction support; additional supported recorder mechanisms;
+disc management UI; richer whole-batch progress. Attachment monitoring enumerates
+USB without repeatedly opening/resetting recorders. Use Refresh after a disc swap.

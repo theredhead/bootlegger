@@ -361,6 +361,9 @@ class CNetMdDev
     //--------------------------------------------------------------------------
     int bulkTransfer(unsigned char* cmd, size_t cmdLen, int timeOut);
 
+    // Bounded device-to-host audio reads; never resets or writes the disc.
+    int bulkRead(unsigned char* data, int length, int timeout);
+
     //--------------------------------------------------------------------------
     //! @brief      wait for the device respond to a command
     //!

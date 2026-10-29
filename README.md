@@ -316,3 +316,11 @@ USB writes. This avoids the RH1 timeout/disconnection reproduced with 1 MiB host
 requests, without changing the encoded audio. Failed operations retain backend
 WARN/CRITICAL details and a diagnostic log path instead of reporting only a generic
 error number. Normal device inspection does not reset the USB recorder.
+
+## NetMD TX preview
+
+The **NetMD TX** Xcode scheme builds a separate menubar app. Choose **Show MiniDisc**
+from its optical-disc menu icon. The track table accepts Finder drops to copy
+recordings to MD; supported tracks can be dragged into Finder as WAV or original
+ATRAC files. Refresh and remembered transfer settings live in the unified toolbar.
+See [NETMD_TX.md](NETMD_TX.md) for capabilities and remaining work.

@@ -28,3 +28,14 @@ connected RH1 on macOS. Also reject successful zero-byte writes to prevent a loo
 
 Local progress patch: bounded USB writes report acknowledged byte counts through a
 scoped transfer observer, allowing continuous progress without changing packet data.
+
+Local native-read patch: CNetMdApi::receiveSPTrack implements the RH1's standard
+0x30 device-to-host command, with 64 KiB bulk reads, response/length validation
+and a progress callback. Playback reads SP audio without entering factory mode,
+changing protection flags or modifying the disc. Protocol references:
+https://github.com/AlexanderS/linux-minidisc/blob/master/netmd/libnetmd.py
+https://github.com/asivery/netmd-js/blob/master/src/netmd-interface.ts
+
+Hardware verification: an RH1 SP track read successfully with 64 KiB USB requests;
+16 KiB reads stalled. The decoded duration matched the TOC (187.06 seconds), and
+the PCM signal was non-silent. Listening verification remains with the user.

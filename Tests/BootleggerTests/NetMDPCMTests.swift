@@ -35,6 +35,11 @@ enum NetMDPCMTests {
             let encoded = try await ATRACEncoder.encode(path, mode: mode)
             let data = try Data(contentsOf: encoded)
             if mode == .sp {
+                let decoded = try await ATRACDecoder.decodeSP(encoded)
+                let decodedAsset = AVURLAsset(url: decoded)
+                let decodedDuration = try await decodedAsset.load(.duration).seconds
+                try SmokeTests.require(
+                    abs(decodedDuration - 1) < 0.1, "recorded SP playback decoder preserves duration")
                 try SmokeTests.require(
                     data.count > 2048 && data[1] == 8 && data[264] == 2,
                     "software SP produces stereo ATRAC1 AEA")

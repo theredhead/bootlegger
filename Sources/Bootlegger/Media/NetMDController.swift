@@ -66,6 +66,82 @@ final class NetMDController: ObservableObject {
         return disc
     }
 
+    /// Reads recorded SP audio using the RH1's native upload command, without changing the disc.
+    func readSP(track: Int, disc confirmed: NetMDDisc, destination: URL) async throws {
+        guard !isBusy else {
+            throw BootleggerError.message("The recorder is busy. Try again when it finishes.")
+        }
+        guard confirmed.supportsNativeSPRead == true,
+            confirmed.tracks.indices.contains(track), confirmed.tracks[track].mode == "sp"
+        else { throw BootleggerError.message("This recorder and track do not support digital SP playback.") }
+        isBusy = true
+        progress = 0
+        status = "Reading recorded audio from MiniDisc…"
+        defer { isBusy = false }
+        let events = try await NetMDTransport.run(
+            NetMDRequest(
+                command: "readSP", fingerprint: confirmed.fingerprint,
+                trackIndex: track, outputPath: destination.path)
+        ) { [weak self] event in
+            if let value = event.progress { self?.progress = value }
+            if let text = event.message { self?.status = text }
+        }
+        guard events.last?.type == "complete" else {
+            throw BootleggerError.message("The recorded audio could not be read completely.")
+        }
+        status = "Recorded audio read successfully."
+    }
+
+    func reorder(order: [Int], confirmedDisc: NetMDDisc) async throws {
+        guard !isBusy, confirmedDisc.writable else {
+            throw BootleggerError.message("The recorder is busy or the MiniDisc is write-protected.")
+        }
+        guard order.sorted() == Array(confirmedDisc.tracks.indices) else {
+            throw BootleggerError.message("The track order is invalid. Refresh the disc.")
+        }
+        isBusy = true
+        status = "Saving track order…"
+        defer { isBusy = false }
+        do {
+            let events = try await NetMDTransport.run(
+                NetMDRequest(command: "reorder", fingerprint: confirmedDisc.fingerprint, trackOrder: order)
+            ) { _ in }
+            guard let updated = events.last?.disc else {
+                throw BootleggerError.message("Refresh to read the updated track order.")
+            }
+            disc = updated
+            status = "Track order saved."
+        } catch {
+            // A failed multi-track move may already have moved some tracks. Read the actual state.
+            disc = nil
+            disc = try? await inspect()
+            throw error
+        }
+    }
+
+    func rename(title: String, track: Int?, confirmedDisc: NetMDDisc) async throws {
+        guard !isBusy else { throw BootleggerError.message("The recorder is busy.") }
+        guard confirmedDisc.writable else {
+            throw BootleggerError.message("The MiniDisc is write-protected.")
+        }
+        guard track == nil || confirmedDisc.tracks.indices.contains(track!) else {
+            throw BootleggerError.message("The selected track is no longer available.")
+        }
+        isBusy = true
+        status = "Saving title to MiniDisc…"
+        defer { isBusy = false }
+        let events = try await NetMDTransport.run(
+            NetMDRequest(
+                command: "rename", fingerprint: confirmedDisc.fingerprint,
+                title: title, trackIndex: track)
+        ) { _ in }
+        guard let updated = events.last?.disc else {
+            throw BootleggerError.message("The recorder did not return the updated title. Refresh the disc.")
+        }
+        disc = updated
+        status = "Title saved to MiniDisc."
+    }
+
     func erase(_ confirmedDisc: NetMDDisc) async {
         guard !isBusy else { return }
         isBusy = true

@@ -270,6 +270,10 @@ public:
     //--------------------------------------------------------------------------
     int trackBitRate(uint16_t track, AudioEncoding& encoding, uint8_t& channel);
 
+    // Native RH1 SP extraction. Caller checks model support before invoking.
+    int receiveSPTrack(uint16_t track, NetMDByteVector& audio, uint8_t& channels,
+                       const std::function<void(size_t, size_t)>& progress);
+
     //--------------------------------------------------------------------------
     //! @brief      get track flags
     //!

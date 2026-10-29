@@ -70,11 +70,15 @@ static NSDictionary *inspect(netmd_pp &api) {
     NSMutableArray *tracks = [NSMutableArray array];
     for (int index = 0; index < count; ++index) {
         TrackTime time{};
+        AudioEncoding encoding;
+        uint8_t channels;
+        check(api.trackBitRate(index, encoding, channels), "Cannot read track encoding");
         std::string name;
         check(api.trackTime(index, time), "Cannot read track duration");
         check(api.trackTitle(index, name), "Cannot read track title");
         [tracks addObject:@{ @"title": [[NSString alloc] initWithBytes:name.data() length:name.size() encoding:NSISOLatin1StringEncoding] ?: @"",
-                            @"duration": @(time.mMinutes * 60.0 + time.mSeconds + time.mTenthSecs / 100.0) }];
+                            @"duration": @(time.mMinutes * 60.0 + time.mSeconds + time.mTenthSecs / 100.0),
+                            @"mode": encoding == AudioEncoding::SP ? @"sp" : encoding == AudioEncoding::LP2 ? @"lp2" : encoding == AudioEncoding::LP4 ? @"lp4" : @"unknown" }];
     }
     NSMutableDictionary *disc = [@{
         @"device": [NSString stringWithUTF8String:api.getDeviceName().c_str()],
@@ -82,6 +86,7 @@ static NSDictionary *inspect(netmd_pp &api) {
         @"trackCount": @(count), @"tracks": tracks, @"writable": @((flags & 0x10) && !(flags & 0x40)),
         @"availableSeconds": @(seconds(capacity.available)), @"totalSeconds": @(seconds(capacity.total)),
         @"supportsLPEncoding": @(api.otfEncodeSupported()), @"supportsGaplessSP": @(api.tocManipSupported()),
+        @"supportsNativeSPRead": @(api.getDeviceName() == "Sony MZ-RH1"),
         @"supportsSoftwareSP": @(api.spUploadSupported()), @"supportsSoftwareLP": @YES
     } mutableCopy];
     disc[@"fingerprint"] = fingerprint(disc);
@@ -204,7 +209,7 @@ int main(int argc, const char *argv[]) {
             NSDictionary *request = data ? [NSJSONSerialization JSONObjectWithData:data options:0 error:nil] : nil;
             if (![request isKindOfClass:NSDictionary.class]) throw std::runtime_error("Invalid NetMD request.");
             NSString *requestedCommand = request[@"command"];
-            if (![@[@"devices", @"inspect", @"erase", @"write"] containsObject:requestedCommand ?: @""])
+            if (![@[@"devices", @"inspect", @"erase", @"write", @"readSP", @"rename", @"reorder"] containsObject:requestedCommand ?: @""])
                 throw std::runtime_error("Unknown NetMD command.");
             NSString *lockPath = [NSString stringWithFormat:@"%@Bootlegger-NetMD-%u.lock", NSTemporaryDirectory(), getuid()];
             int lock = open(lockPath.fileSystemRepresentation, O_CREAT | O_RDWR, 0600);
@@ -255,6 +260,99 @@ int main(int argc, const char *argv[]) {
             NSString *command = request[@"command"];
             if ([command isEqual:@"inspect"]) {
                 emit(@{ @"type": @"disc", @"disc": disc });
+            } else if ([command isEqual:@"reorder"]) {
+                validate(request, disc);
+                NSArray *order = request[@"trackOrder"];
+                const NSUInteger count = [disc[@"tracks"] count];
+                if (![order isKindOfClass:NSArray.class] || order.count != count)
+                    throw std::runtime_error("Invalid track order. Refresh the disc.");
+                std::set<int> seen;
+                for (NSNumber *value in order) {
+                    if (![value isKindOfClass:NSNumber.class] || value.doubleValue != value.intValue
+                        || value.intValue < 0 || value.intValue >= count || !seen.insert(value.intValue).second)
+                        throw std::runtime_error("Invalid track order. Refresh the disc.");
+                }
+                std::vector<int> current;
+                for (NSUInteger index = 0; index < count; ++index) current.push_back(index);
+                for (NSUInteger target = 0; target < count; ++target) {
+                    auto found = std::find(current.begin() + target, current.end(), [order[target] intValue]);
+                    NSUInteger source = found - current.begin();
+                    if (source == target) continue;
+                    check(api.moveTrack(source, target), "Cannot move track; some tracks may have moved. Refresh the disc");
+                    int identity = *found;
+                    current.erase(found);
+                    current.insert(current.begin() + target, identity);
+                }
+                NSMutableDictionary *updated = [inspect(api) mutableCopy];
+                updated[@"location"] = location;
+                [updated removeObjectForKey:@"fingerprint"];
+                updated[@"fingerprint"] = fingerprint(updated);
+                emit(@{ @"type": @"disc", @"disc": updated });
+            } else if ([command isEqual:@"rename"]) {
+                validate(request, disc);
+                if (![request[@"title"] isKindOfClass:NSString.class]) throw std::runtime_error("Missing title.");
+                NSString *latin = [request[@"title"] stringByApplyingTransform:NSStringTransformToLatin reverse:NO];
+                latin = [latin stringByFoldingWithOptions:NSDiacriticInsensitiveSearch locale:[NSLocale localeWithLocaleIdentifier:@"en_US_POSIX"]];
+                if (latin.length > 120 || [request[@"title"] length] > 120)
+                    throw std::runtime_error("Use a title of at most 120 characters.");
+                if ([request[@"title"] rangeOfCharacterFromSet:NSCharacterSet.controlCharacterSet].location != NSNotFound)
+                    throw std::runtime_error("Titles cannot contain control characters or line breaks.");
+                std::string title = mdTitle(request[@"title"]);
+                NSNumber *number = request[@"trackIndex"];
+                if (number && (![number isKindOfClass:NSNumber.class] || number.doubleValue != number.intValue
+                    || number.intValue < 0 || number.intValue >= [disc[@"trackCount"] intValue]))
+                    throw std::runtime_error("Select a valid track to rename.");
+                if (!number && title.find("//") != std::string::npos)
+                    throw std::runtime_error("Album titles cannot contain //, which MiniDisc reserves for track groups.");
+                size_t cells = (number ? [disc[@"title"] lengthOfBytesUsingEncoding:NSISOLatin1StringEncoding] + 6 : title.size() + 6) / 7;
+                for (NSUInteger index = 0; index < [disc[@"tracks"] count]; ++index) {
+                    size_t size = number && number.unsignedIntegerValue == index ? title.size()
+                        : [disc[@"tracks"][index][@"title"] lengthOfBytesUsingEncoding:NSISOLatin1StringEncoding];
+                    cells += (size + 6) / 7;
+                }
+                if (cells > 255) throw std::runtime_error("This MD has insufficient title storage. Use a shorter title.");
+                if (number) check(api.setTrackTitle(number.intValue, title), "Cannot rename track");
+                else check(api.setDiscTitle(title), "Cannot rename album");
+                NSMutableDictionary *renamed = [inspect(api) mutableCopy];
+                renamed[@"location"] = location;
+                [renamed removeObjectForKey:@"fingerprint"];
+                renamed[@"fingerprint"] = fingerprint(renamed);
+                emit(@{ @"type": @"disc", @"disc": renamed });
+            } else if ([command isEqual:@"readSP"]) {
+                if (![request[@"fingerprint"] isEqual:disc[@"fingerprint"]])
+                    throw std::runtime_error("The disc changed. Refresh before playing this track.");
+                if (![disc[@"supportsNativeSPRead"] boolValue])
+                    throw std::runtime_error("Digital SP playback is currently available only on the Sony MZ-RH1.");
+                NSNumber *number = request[@"trackIndex"];
+                if (![number isKindOfClass:NSNumber.class] || number.doubleValue != number.intValue
+                    || number.intValue < 0 || number.intValue >= [disc[@"trackCount"] intValue])
+                    throw std::runtime_error("Select a valid track to play.");
+                NSString *path = request[@"outputPath"];
+                if (![path isKindOfClass:NSString.class] || !path.isAbsolutePath
+                    || [NSFileManager.defaultManager fileExistsAtPath:path])
+                    throw std::runtime_error("Playback requires a new temporary audio file.");
+                if (![disc[@"tracks"][number.intValue][@"mode"] isEqual:@"sp"])
+                    throw std::runtime_error("Mac playback currently supports SP tracks. LP decoding is not available yet.");
+                NetMDByteVector audio;
+                uint8_t channels = 0;
+                auto lastUpdate = std::chrono::steady_clock::now() - std::chrono::seconds(1);
+                check(api.receiveSPTrack(number.intValue, audio, channels, [&](size_t done, size_t total) {
+                    auto now = std::chrono::steady_clock::now();
+                    if (done != total && now - lastUpdate < std::chrono::milliseconds(100)) return;
+                    lastUpdate = now;
+                    emit(@{ @"type": @"progress", @"progress": @(double(done) / total), @"message": @"Reading recorded audio from MiniDisc…" });
+                }), "Cannot read SP audio from the recorder");
+                NSMutableData *file = [NSMutableData dataWithLength:2048];
+                auto bytes = static_cast<uint8_t *>(file.mutableBytes);
+                bytes[1] = 8;
+                bytes[264] = channels;
+                uint32_t groups = static_cast<uint32_t>(audio.size() / 212);
+                for (int i = 0; i < 4; ++i) bytes[260 + i] = (groups >> (8 * i)) & 0xff;
+                [file appendBytes:audio.data() length:audio.size()];
+                NSError *error = nil;
+                if (![file writeToFile:path options:NSDataWritingWithoutOverwriting error:&error])
+                    throw std::runtime_error("Cannot save temporary recorded audio.");
+                emit(@{ @"type": @"complete" });
             } else if ([command isEqual:@"erase"]) {
                 validate(request, disc);
                 check(api.eraseDisc(), "Could not erase disc");

@@ -55,6 +55,7 @@ struct NetMDDisc: Codable, Equatable, Sendable {
     struct Track: Codable, Equatable, Sendable {
         var title: String
         var duration: Double
+        var mode: String?
     }
     var device: String
     var title: String
@@ -69,6 +70,7 @@ struct NetMDDisc: Codable, Equatable, Sendable {
     var supportsSoftwareSP = false
     var supportsSoftwareLP = true
     var fingerprint: String
+    var supportsNativeSPRead: Bool?
 }
 
 enum NetMDPreflight {
