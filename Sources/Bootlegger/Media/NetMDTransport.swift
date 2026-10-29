@@ -15,6 +15,9 @@ struct NetMDRequest: Encodable, Sendable {
     var tracks: [Track]?
     var cancelPath: String?
     var recoveryPath: String?
+    var trackIndex: Int?
+    var outputPath: String?
+    var trackOrder: [Int]?
 }
 
 struct NetMDEvent: Decodable, Sendable {

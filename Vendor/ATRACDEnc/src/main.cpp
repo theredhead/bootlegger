@@ -358,7 +358,8 @@ static void PrepareAtrac1Decoder(const string& inFile,
 	     << "\n Codec: PCM"
              << endl;
     wavIO->reset(new TWav(outFile, aeaIO->GetChannelNum(), 44100));
-    pcmEngine->reset(new TPCMEngine(4096,
+    // Decode one sound group per step, so the final iteration cannot read past EOF.
+    pcmEngine->reset(new TPCMEngine(NAtrac1::TAtrac1Data::NumSamples,
                                             aeaIO->GetChannelNum(),
                                             TPCMEngine::TWriterPtr((*wavIO)->GetPCMWriter())));
     atracProcessor->reset(new TAtrac1Decoder(std::move(aeaIO)));

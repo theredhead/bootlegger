@@ -12,6 +12,9 @@ xcrun swiftc -parse-as-library -swift-version 5 -strict-concurrency=complete \
     Sources/Bootlegger/Artwork/*.swift \
     Sources/Bootlegger/Domain/*.swift \
     Sources/Bootlegger/Media/*.swift \
+    Sources/NetMDTX/TXLibrary.swift \
+    Sources/NetMDTX/TXExtraction.swift \
+    Sources/NetMDTX/ATRACDecoder.swift \
     Sources/Bootlegger/Documents/*.swift \
     Sources/Bootlegger/Views/*.swift \
     Tests/BootleggerTests/*.swift \

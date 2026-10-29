@@ -121,7 +121,7 @@ enum AudioExporter {
         return items
     }
 
-    static func safeFilename(_ text: String) -> String {
+    nonisolated static func safeFilename(_ text: String) -> String {
         let forbidden = CharacterSet(charactersIn: "/:\\").union(.controlCharacters)
         let sanitized = text.components(separatedBy: forbidden).joined(separator: "-").trimmingCharacters(
             in: .whitespacesAndNewlines)

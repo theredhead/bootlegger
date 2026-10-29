@@ -44,6 +44,8 @@ struct SmokeTests {
         try ExportPlanTests.run()
         try await NetMDTests.run()
         try await NetMDPCMTests.run(source: source, directory: directory)
+        try await TXQueueTests.run(source: source, directory: directory)
+        try await TXExtractionTests.run(directory: directory)
         try await FileExportTests.run(source: source, directory: directory)
         try RowSelectionTests.run()
         try ArtworkPaddingTests.run()

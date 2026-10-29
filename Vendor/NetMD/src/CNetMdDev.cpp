@@ -858,6 +858,19 @@ int CNetMdDev::exchange(unsigned char* cmd, size_t cmdLen, NetMDResp* response,
 //!
 //! @return     The response size or NetMdErr.
 //--------------------------------------------------------------------------
+int CNetMdDev::bulkRead(unsigned char* data, int length, int timeout)
+{
+    std::unique_lock<std::recursive_mutex> lock(mMtxDevAcc);
+    if (mDevice.mDevHdl == nullptr) return NETMDERR_NOTREADY;
+    int received = 0;
+    int result = libusb_bulk_transfer(mDevice.mDevHdl, 0x81, data, length, &received, timeout);
+    if (result != 0) {
+        mLOG(WARN) << "Audio read: " << libusb_error_name(result) << ", bytes=" << received;
+    }
+    if ((result != 0 && result != LIBUSB_ERROR_TIMEOUT) || received <= 0) return NETMDERR_USB;
+    return received;
+}
+
 int CNetMdDev::bulkTransfer(unsigned char* cmd, size_t cmdLen, int timeOut)
 {
     std::unique_lock<std::recursive_mutex> lock(mMtxDevAcc);

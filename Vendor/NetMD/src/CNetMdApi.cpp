@@ -649,6 +649,46 @@ int CNetMdApi::deleteTrack(uint16_t track)
 //!
 //! @return     NetMdErr
 //--------------------------------------------------------------------------
+int CNetMdApi::receiveSPTrack(uint16_t track, NetMDByteVector& audio, uint8_t& channels,
+                              const std::function<void(size_t, size_t)>& progress)
+{
+    AudioEncoding encoding;
+    uint8_t channel;
+    int ret = trackBitRate(track, encoding, channel);
+    if (ret < 0) return ret;
+    if (encoding != AudioEncoding::SP || channel > 1) return NETMDERR_NOT_SUPPORTED;
+    channels = channel == 1 ? 1 : 2;
+    const uint16_t number = track + 1;
+    unsigned char query[] = {0x00,0x18,0x00,0x08,0x00,0x46,0xf0,0x03,0x01,0x03,0x30,
+                             0xff,0x00,0x10,0x01,static_cast<uint8_t>(number >> 8),static_cast<uint8_t>(number)};
+    NetMDResp response;
+    ret = mpNetMd->sendCmd(query, sizeof(query), false);
+    if (ret < 0) return ret;
+    ret = mpNetMd->getResponse(response);
+    const uint8_t prefix[] = {0x18,0x00,0x08,0x00,0x46,0xf0,0x03,0x01,0x03,0x30,0x00,0x00,0x10,0x01};
+    if (ret != 22 || !response || (response[0] != CNetMdDev::NETMD_STATUS_ACCEPTED && response[0] != CNetMdDev::NETMD_STATUS_INTERIM)
+        || std::memcmp(response.get() + 1, prefix, sizeof(prefix)) != 0) return NETMDERR_CMD_FAILED;
+    uint8_t format = response[17] & 6;
+    uint32_t length = (uint32_t(response[18]) << 24) | (uint32_t(response[19]) << 16)
+                    | (uint32_t(response[20]) << 8) | response[21];
+    if ((format != 4 && format != 6) || length == 0 || length > 256u * 1024u * 1024u
+        || length % (212u * channels) != 0) return NETMDERR_PARAM;
+    audio.resize(length);
+    size_t completed = 0;
+    while (completed < length) {
+        ret = mpNetMd->bulkRead(audio.data() + completed, std::min<size_t>(65536, length - completed), 80000);
+        if (ret < 0) { audio.clear(); return ret; }
+        completed += ret;
+        progress(completed, length);
+    }
+    ret = mpNetMd->getResponse(response);
+    if (ret != 19 || !response || response[0] != CNetMdDev::NETMD_STATUS_ACCEPTED
+        || std::memcmp(response.get() + 1, prefix, sizeof(prefix)) != 0
+        || response[17] != 0) { audio.clear(); return NETMDERR_CMD_FAILED; }
+    std::this_thread::sleep_for(std::chrono::milliseconds(500));
+    return NETMDERR_NO_ERROR;
+}
+
 int CNetMdApi::trackBitRate(uint16_t track, AudioEncoding& encoding, uint8_t& channel)
 {
     encoding = AudioEncoding::UNKNOWN;

@@ -121,6 +121,69 @@ enum NetMDTests {
                     && error.localizedDescription.contains("Diagnostic log:"),
                 "helper error and backend details propagate")
         }
+        var renamed = NetMDDisc(
+            device: "Fixture", title: "Renamed Album", trackCount: 1,
+            tracks: [.init(title: "Renamed Track", duration: 60, mode: "sp")], writable: true,
+            availableSeconds: 4000, totalSeconds: 4800, supportsLPEncoding: false,
+            supportsGaplessSP: false, fingerprint: "after")
+        let captured = folder.appendingPathComponent("request.json")
+        let json = String(decoding: try JSONEncoder().encode(renamed), as: UTF8.self)
+        let response =
+            "#!/bin/sh\ncp \"$1\" \"\(captured.path)\"\nprintf '%s\\n' '{\"type\":\"disc\",\"disc\":\(json)}'\n"
+        try response.write(to: helper, atomically: true, encoding: .utf8)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: helper.path)
+        var snapshot = renamed
+        snapshot.fingerprint = "before"
+        try await NetMDController.shared.rename(title: "Renamed Track", track: 0, confirmedDisc: snapshot)
+        var request = try JSONSerialization.jsonObject(with: Data(contentsOf: captured)) as! [String: Any]
+        try SmokeTests.require(
+            request["command"] as? String == "rename" && request["trackIndex"] as? Int == 0
+                && request["fingerprint"] as? String == "before"
+                && NetMDController.shared.disc?.fingerprint == "after" && !NetMDController.shared.isBusy,
+            "track rename sends the captured disc identity and applies readback")
+        try await NetMDController.shared.rename(title: "Renamed Album", track: nil, confirmedDisc: snapshot)
+        request = try JSONSerialization.jsonObject(with: Data(contentsOf: captured)) as! [String: Any]
+        try SmokeTests.require(
+            request["trackIndex"] == nil && request["title"] as? String == "Renamed Album",
+            "album rename omits the track index")
+        let library = TXLibrary()
+        for invalid in [String(repeating: "x", count: 121), "line\nbreak", "reserved//group"] {
+            library.error = nil
+            library.rename(title: invalid, track: nil, disc: snapshot)
+            try SmokeTests.require(
+                library.error != nil && !library.isRenaming,
+                "invalid titles are rejected before any metadata write")
+        }
+        var ordered = snapshot
+        ordered.trackCount = 2
+        ordered.tracks.append(.init(title: "Second", duration: 30, mode: "sp"))
+        var moved = ordered
+        moved.tracks.reverse()
+        moved.fingerprint = "reordered"
+        let orderJSON = String(decoding: try JSONEncoder().encode(moved), as: UTF8.self)
+        let orderResponse =
+            "#!/bin/sh\ncp \"$1\" \"\(captured.path)\"\nprintf '%s\\n' '{\"type\":\"disc\",\"disc\":\(orderJSON)}'\n"
+        try orderResponse.write(to: helper, atomically: true, encoding: .utf8)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: helper.path)
+        try await NetMDController.shared.reorder(order: [1, 0], confirmedDisc: ordered)
+        request = try JSONSerialization.jsonObject(with: Data(contentsOf: captured)) as! [String: Any]
+        try SmokeTests.require(
+            request["command"] as? String == "reorder"
+                && request["trackOrder"] as? [Int] == [1, 0]
+                && request["fingerprint"] as? String == ordered.fingerprint
+                && NetMDController.shared.disc?.tracks == moved.tracks,
+            "reorder sends a complete permutation and applies actual device readback")
+        ordered.writable = false
+        try SmokeTests.require(
+            !library.reorder(order: [1, 0], disc: ordered), "protected discs reject reorder drops")
+        renamed.writable = false
+        do {
+            try await NetMDController.shared.rename(title: "Forbidden", track: 0, confirmedDisc: renamed)
+            throw BootleggerError.message("Test failed: renamed a protected disc")
+        } catch {
+            try SmokeTests.require(
+                error.localizedDescription.contains("protected"), "rename refuses write-protected discs")
+        }
         if let original {
             setenv("BOOTLEGGER_NETMD_HELPER", original, 1)
             if ProcessInfo.processInfo.environment["BOOTLEGGER_SKIP_USB_PROBE"] != "1" {
