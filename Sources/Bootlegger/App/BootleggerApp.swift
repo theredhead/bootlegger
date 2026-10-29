@@ -90,28 +90,14 @@ struct BootleggerApp {
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
+    private let splash = StartupSplash()
+
     @objc func showAbout(_ sender: Any?) {
-        let bundle = Bundle.main
-        var options: [NSApplication.AboutPanelOptionKey: Any] = [
-            .applicationName: "Bootlegger",
-            .credits: NSAttributedString(
-                string:
-                    "Turn concert recordings into albums.\nApp: MIT • NetMD helper: GPL-3.0-or-later\nThird-party sources and notices are bundled."
-            ),
-        ]
-        if let url = bundle.url(forResource: "AppIcon", withExtension: "icns"),
-            let icon = NSImage(contentsOf: url)
-        {
-            options[.applicationIcon] = icon
-        }
-        if let version = bundle.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String {
-            options[.applicationVersion] = version
-        }
-        if let build = bundle.object(forInfoDictionaryKey: "CFBundleVersion") as? String {
-            options[.version] = build
-        }
-        NSApplication.shared.orderFrontStandardAboutPanel(options: options)
+        VendorCredits.showAbout(
+            applicationName: "Bootlegger", summary: "Turn concert recordings into albums.")
     }
+
+    func applicationWillTerminate(_ notification: Notification) { splash.close() }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         // This app creates NSApplication itself; explicitly update the live Dock icon as well as bundle metadata.
@@ -129,6 +115,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 NSApplication.shared.presentError(error)
             }
         }
+        splash.show(applicationName: "Bootlegger")
     }
 
     func application(_ application: NSApplication, open urls: [URL]) {

@@ -23,6 +23,25 @@ open .build/Build/Products/Debug/Bootlegger.app
 For an optimized app, build with `-configuration Release`; the result is
 `.build/Build/Products/Release/Bootlegger.app`.
 
+## Release disk image
+
+Build every app target in Release and package the apps together:
+
+```sh
+./scripts/release.sh
+```
+
+The script creates `.build/releases/Bootlegger-<version>-<architecture>.dmg`, a SHA-256
+checksum, and `build-release.log`. The image contains all apps built on the current branch and an
+Applications shortcut. Each app includes its native helpers, codecs and source/license
+notices. App signatures and the finished image are verified before publication.
+
+This builds for the current Mac's architecture, matching the bundled native helpers.
+It uses ad-hoc signing by default. Set `RELEASE_SIGN_IDENTITY` to an installed signing
+identity if needed; notarization is not part of this script. Pinned native dependency
+sources are downloaded if absent; set `NETMD_FETCH=0` for a cached/offline build.
+Use `./scripts/release.sh --output-dir /path/to/releases` for a different destination.
+
 ## Use
 
 1. Choose **Import Recording**, drop an audio or video recording onto a project window, or drop it onto the

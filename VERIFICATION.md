@@ -361,3 +361,24 @@ are replaced by a compact progress view and Cancel button. File preparation and 
 USB transfers should advance within each track. Successful exports close the sheet;
 errors and cancellation retain the selected tracks and order. MD cancellation finishes
 the active recording safely before stopping.
+
+Artwork search: without a selected image, verify the preview shows a photo icon
+and “No image yet” instead of a black crop. Type a query and pause for half a second
+for automatic search. Rapid edits should cancel the previous timer/navigation;
+Return and Search should run immediately without a second delayed request. Clearing
+the query should clear selection/results and issue no search. Close the window or
+choose a local image during the debounce and verify no delayed search clears it.
+Older navigation errors/results must not replace the current query's state.
+
+Startup acknowledgements: launch Bootlegger and verify its centered, appearance-aware
+splash closes after approximately two seconds without blocking startup. About
+Bootlegger should retain linked author credits, version/build and license information.
+
+Updated acknowledgements layout: splash should show a large app icon, app name and
+a short reference to the About credits, with no vendor list. It should still close
+after two seconds. About should show all linked project names, author credits,
+version and license text at once, with no scrolling. The content-sized Bootlegger
+About layout was rendered and checked for unclipped views.
+
+Hardware playback: the user confirmed successful playback of the recorded albums
+on real hardware after resolving the playback device issue.
