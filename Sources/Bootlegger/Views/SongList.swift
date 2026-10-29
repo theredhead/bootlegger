@@ -16,7 +16,9 @@ struct SongList: View {
             if model.project.songs.isEmpty {
                 ContentUnavailableView(
                     "No songs yet", systemImage: "music.note.list",
-                    description: Text("Seek to a song's beginning, then click Add Song."))
+                    description: Text("Seek to a song's beginning, then click Add Song.")
+                )
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
             } else {
                 ScrollView {
                     LazyVStack(spacing: 4) {

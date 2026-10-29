@@ -5,7 +5,8 @@ import WebKit
 
 /// Adapts the MacroPad/IIgs image search to select original data for nondestructive artwork.
 @MainActor
-final class ArtworkSearchController: NSObject, WKScriptMessageHandler, WKNavigationDelegate, NSWindowDelegate
+final class ArtworkSearchController: NSObject, WKScriptMessageHandler, WKNavigationDelegate, NSWindowDelegate,
+    NSTextFieldDelegate
 {
     private var window: NSWindow?
     private var results: WKWebView?
@@ -22,6 +23,8 @@ final class ArtworkSearchController: NSObject, WKScriptMessageHandler, WKNavigat
     private var selectedData: Data?
     private var requestID = 0
     private var searchQuery = ""
+    private var scheduledSearch: Task<Void, Never>?
+    private var activeSearchNavigation: WKNavigation?
     private var gridReady = false
     private var pendingResults: [String] = []
     private var download: ArtworkDownload?
@@ -36,17 +39,21 @@ final class ArtworkSearchController: NSObject, WKScriptMessageHandler, WKNavigat
         }
         self.completion = completion
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 1000, height: 650),
+            contentRect: NSRect(x: 0, y: 0, width: 1000, height: 678),
             styleMask: [.titled, .closable, .miniaturizable], backing: .buffered, defer: false)
         window.title = "Search Album Artwork"
         window.isReleasedWhenClosed = false
         window.delegate = self
         self.window = window
-        guard let root = window.contentView else { return }
+        guard let content = window.contentView else { return }
+        let root = NSView(frame: NSRect(x: 0, y: 28, width: 1000, height: 650))
+        content.addSubview(root)
+        addAttribution(to: content)
         query.stringValue = initialQuery
         query.placeholderString = "Artist, album or concert"
         query.frame = NSRect(x: 20, y: 600, width: 520, height: 28)
         query.cell?.sendsActionOnEndEditing = false
+        query.delegate = self
         query.target = self
         query.action = #selector(search(_:))
         root.addSubview(query)
@@ -134,13 +141,63 @@ final class ArtworkSearchController: NSObject, WKScriptMessageHandler, WKNavigat
         fullImage.isEnabled = false
         root.addSubview(fullImage)
         grid.loadHTMLString(
-            ArtworkSearchPage.html(searchingLabel: "Enter a query and choose Search."), baseURL: nil)
+            ArtworkSearchPage.html(searchingLabel: "Enter an artist, album or concert to search."),
+            baseURL: nil)
         window.center()
         window.makeKeyAndOrderFront(nil)
         if !initialQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { self.search(nil) }
     }
 
+    private func addAttribution(to content: NSView) {
+        let separator = NSBox(frame: NSRect(x: 0, y: 27, width: content.bounds.width, height: 1))
+        separator.boxType = .separator
+        separator.autoresizingMask = [.width]
+        content.addSubview(separator)
+        let text = "Artwork search powered by DuckDuckGo"
+        let attribution = NSMutableAttributedString(
+            string: text,
+            attributes: [
+                .font: NSFont.systemFont(ofSize: NSFont.smallSystemFontSize),
+                .foregroundColor: NSColor.secondaryLabelColor,
+            ])
+        attribution.addAttributes(
+            [
+                .link: URL(string: "https://duckduckgo.com/")!,
+                .foregroundColor: NSColor.linkColor,
+                .underlineStyle: NSUnderlineStyle.single.rawValue,
+            ], range: (text as NSString).range(of: "DuckDuckGo"))
+        let label = NSTextField(labelWithAttributedString: attribution)
+        label.frame = NSRect(x: 12, y: 5, width: content.bounds.width - 24, height: 18)
+        label.autoresizingMask = [.width]
+        label.isSelectable = true
+        label.allowsEditingTextAttributes = true
+        content.addSubview(label)
+    }
+
+    func controlTextDidChange(_ notification: Notification) {
+        guard notification.object as? NSTextField === query else { return }
+        scheduledSearch?.cancel()
+        searchPage?.stopLoading()
+        activeSearchNavigation = nil
+        searchQuery = ""
+        clearSelection()
+        pendingResults = []
+        gridReady = false
+        let text = query.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        let label = text.isEmpty ? "Enter an artist, album or concert to search." : "Waiting for your query…"
+        status.stringValue = label
+        results?.loadHTMLString(ArtworkSearchPage.html(searchingLabel: label), baseURL: nil)
+        guard !text.isEmpty else { return }
+        scheduledSearch = Task { [weak self] in
+            do { try await Task.sleep(for: .milliseconds(500)) } catch { return }
+            guard !Task.isCancelled, let self, self.window != nil else { return }
+            self.search(nil)
+        }
+    }
+
     @objc private func search(_ sender: Any?) {
+        scheduledSearch?.cancel()
+        scheduledSearch = nil
         let text = query.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else {
             status.stringValue = "Enter an artist, album or concert."
@@ -158,7 +215,7 @@ final class ArtworkSearchController: NSObject, WKScriptMessageHandler, WKNavigat
         pendingResults = []
         status.stringValue = "Searching DuckDuckGo Images…"
         results?.loadHTMLString(ArtworkSearchPage.html(searchingLabel: "Searching for images…"), baseURL: nil)
-        searchPage?.load(URLRequest(url: url))
+        activeSearchNavigation = searchPage?.load(URLRequest(url: url))
     }
 
     private func clearSelection() {
@@ -196,7 +253,11 @@ final class ArtworkSearchController: NSObject, WKScriptMessageHandler, WKNavigat
         if webView === results {
             gridReady = true
             updateResults()
-        } else {
+        } else if webView === searchPage, navigation === activeSearchNavigation, !searchQuery.isEmpty,
+            let url = webView.url,
+            URLComponents(url: url, resolvingAgainstBaseURL: false)?
+                .queryItems?.first(where: { $0.name == "q" })?.value == searchQuery
+        {
             searchPage?.evaluateJavaScript("collectImages()", completionHandler: nil)
             if pendingResults.isEmpty {
                 status.stringValue = "If no images appear, try another query or choose a local image."
@@ -207,7 +268,9 @@ final class ArtworkSearchController: NSObject, WKScriptMessageHandler, WKNavigat
     func webView(
         _ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error
     ) {
-        guard (error as NSError).code != NSURLErrorCancelled else { return }
+        guard webView === searchPage, navigation === activeSearchNavigation, !searchQuery.isEmpty,
+            (error as NSError).code != NSURLErrorCancelled
+        else { return }
         status.stringValue = "Search unavailable. Try again or choose a local image."
     }
 
@@ -223,7 +286,10 @@ final class ArtworkSearchController: NSObject, WKScriptMessageHandler, WKNavigat
             status.stringValue = "Select an image to preview it."
             return
         }
-        guard message.name == "iconImage", let value = message.body as? String else { return }
+        guard message.name == "iconImage", !searchQuery.isEmpty,
+            searchQuery == query.stringValue.trimmingCharacters(in: .whitespacesAndNewlines),
+            let value = message.body as? String
+        else { return }
         clearSelection()
         let selectedID = requestID
         if value.hasPrefix("data:image") {
@@ -279,6 +345,8 @@ final class ArtworkSearchController: NSObject, WKScriptMessageHandler, WKNavigat
     }
 
     @objc private func chooseLocal(_ sender: Any?) {
+        scheduledSearch?.cancel()
+        scheduledSearch = nil
         let panel = NSOpenPanel()
         panel.allowedContentTypes = [.image]
         guard panel.runModal() == .OK, let url = panel.url else { return }
@@ -311,6 +379,10 @@ final class ArtworkSearchController: NSObject, WKScriptMessageHandler, WKNavigat
     func close() { window?.close() }
 
     func windowWillClose(_ notification: Notification) {
+        scheduledSearch?.cancel()
+        scheduledSearch = nil
+        searchQuery = ""
+        activeSearchNavigation = nil
         clearSelection()
         results?.stopLoading()
         searchPage?.stopLoading()
