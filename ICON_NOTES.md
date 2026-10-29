@@ -11,3 +11,15 @@ Use case: background-extraction. Asset type: native macOS app icon master, squar
 ## Cleanup prompt
 
 Use case: background-extraction. Edit target: this single boot/record macOS icon. Preserve the entire icon design, leather texture, colors, waveform, record and rounded tan tile exactly. Clean only the transparent surroundings: remove every stray colored speck and halo outside the rounded-square tile, especially the red/yellow pixels above its top edge. All padding outside the tile must be fully transparent with zero alpha. Keep a centered square canvas and clean approximately 8% transparent margins. No added elements, no redesign.
+
+## NetMD TX icon
+
+Generated with the built-in image_gen tool from the user's clear MiniDisc cartridge
+reference. Master: `Sources/NetMDTX/Resources/NetMDTXIcon.png` (transparent PNG).
+The dedicated `Sources/NetMDTX/Resources/Assets.xcassets/AppIcon.appiconset` contains
+16–1024 pixel macOS variants made with `sips`. Only the NetMD TX target consumes
+this catalog; Bootlegger's icon is unchanged.
+
+### Generation prompt
+
+Use case: stylized-concept. Asset: a single production macOS application icon for NetMD TX, square 1024x1024 master with genuine transparent surroundings. Reference image is subject reference, not a photograph to preserve: the clear MiniDisc cartridge with visible iridescent circular disc, central silver spindle and rectangular silver sliding shutter at the right. Create a polished stylized dimensional illustration, front facing, centered, clean strong silhouette, rounded square clear smoked-silver cartridge with subtly beveled edges and a few simplified molded details. The beautiful optical disc has restrained cyan, gold, violet rainbow reflections against dark reflective graphite, bright machined silver circular hub, and a distinct brushed silver right-hand shutter. The cartridge itself is the app icon shape: no extra background tile. Approximately 8 percent transparent margin, subtle close shadow only, beautiful clarity in light and dark mode, bold simplified details legible at small sizes. Reference the cartridge's distinctive geometry faithfully while simplifying it into a premium macOS app icon. Only one icon, not a sheet or mockup. No Sony logo, no brand lettering, no numbers, no text, no arrows, no extra objects.

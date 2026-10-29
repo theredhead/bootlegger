@@ -428,9 +428,12 @@ the query should clear selection/results and issue no search. Close the window o
 choose a local image during the debounce and verify no delayed search clears it.
 Older navigation errors/results must not replace the current query's state.
 
-Startup acknowledgements: launch Bootlegger and verify its centered, appearance-aware
-splash closes after approximately two seconds without blocking startup. About
-Bootlegger should retain linked author credits, version/build and license information.
+Startup acknowledgements: launch Bootlegger and NetMD TX separately. Each should
+show a centered, appearance-aware vendor thank-you splash for approximately two
+seconds, then close it without blocking startup or stealing keyboard focus. Quit
+during the splash and verify it disappears. About Bootlegger and the menu-bar
+About NetMD TX item should retain the same author credits, clickable project links,
+version/build and bundled-license information after the splash has closed.
 
 Updated acknowledgements layout: splash should show a large app icon, app name and
 a short reference to the About credits, with no vendor list. It should still close
